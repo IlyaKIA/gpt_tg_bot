@@ -4,6 +4,7 @@ import com.example.gpt.config.BotConfig;
 import com.example.gpt.service.AnswerService;
 import com.example.gpt.service.ChatGPT_Service;
 import com.example.gpt.service.DalleService;
+import com.theokanning.openai.OpenAiHttpException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.util.HashMap;
 
 import static com.example.gpt.source.Commands.*;
+import static com.example.gpt.source.MessageTexts.ERROR_MSG;
 
 @Slf4j
 @Component
@@ -42,22 +44,19 @@ public class TelegramBot extends TelegramLongPollingBot {
             String receivedText = update.getMessage().getText();
             SendMessage message; // Create a SendMessage object with mandatory fields
             switch (receivedText.toLowerCase()) {
-                case COMMAND_START: {
+                case COMMAND_START -> {
                     message = answerService.createIntroduction(update);
-                    break;
                 }
-                case HI_GPT: {
+                case HI_GPT -> {
                     message = answerService.gptGreeting(update);
                     rooms.put(chatId, HI_GPT);
-                    break;
                 }
-                case NEW_PIC: {
+                case NEW_PIC -> {
                     message = answerService.picGreeting(update);
                     rooms.put(chatId, NEW_PIC);
-                    break;
                 }
-                default: {
-                    if(rooms.containsKey(chatId)) {
+                default -> {
+                    if (rooms.containsKey(chatId)) {
                         message = chooseService(rooms.get(chatId), update);
                     } else {
                         message = answerService.createIntroduction(update);
@@ -74,12 +73,17 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private SendMessage chooseService(String room, Update update) {
-        if (HI_GPT.equals(room)) {
-            return chatGPTService.ask(update.getMessage().getText(), update.getMessage().getChatId());
-        } else if (NEW_PIC.equals(room)) {
-            return dalleService.ask(update.getMessage().getText(), update.getMessage().getChatId());
-        } else {
+        try {
+            if (HI_GPT.equals(room)) {
+                return chatGPTService.ask(update.getMessage().getText(), update.getMessage().getChatId());
+            } else if (NEW_PIC.equals(room)) {
+                return dalleService.ask(update.getMessage().getText(), update.getMessage().getChatId());
+            } else {
                 //TODO
+            }
+        } catch (OpenAiHttpException e) {
+            log.error("Problems with GPT connection", e);
+            return answerService.getErrorText(String.format(ERROR_MSG, e.getMessage()), update.getMessage().getChatId());
         }
         return null;
     }

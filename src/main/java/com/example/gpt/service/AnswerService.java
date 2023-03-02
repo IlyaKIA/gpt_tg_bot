@@ -50,4 +50,11 @@ public class AnswerService {
         message.setText(text);
         return message;
     }
+
+    public SendMessage getErrorText(String errText, Long chatId) {
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId.toString());
+        message.setText(errText);
+        return message;
+    }
 }
