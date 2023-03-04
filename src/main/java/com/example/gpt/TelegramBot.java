@@ -4,12 +4,12 @@ import com.example.gpt.config.BotConfig;
 import com.example.gpt.service.AnswerService;
 import com.example.gpt.service.ChatGPT_Service;
 import com.example.gpt.service.DalleService;
-import com.theokanning.openai.OpenAiHttpException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -36,13 +36,12 @@ public class TelegramBot extends TelegramLongPollingBot {
         this.config = config;
     }
 
-
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
             Long chatId = update.getMessage().getChatId();
             String receivedText = update.getMessage().getText();
-            SendMessage message; // Create a SendMessage object with mandatory fields
+            Object message;
             switch (receivedText.toLowerCase()) {
                 case COMMAND_START -> {
                     message = answerService.createIntroduction(update);
@@ -65,14 +64,18 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
 
             try {
-                execute(message); // Call method to send the message
+                if (message instanceof SendMessage) {
+                    execute((SendMessage) message);
+                } else if (message instanceof SendPhoto) {
+                    execute((SendPhoto) message);
+                }
             } catch (TelegramApiException e) {
                 log.error("onUpdateReceived", e);
             }
         }
     }
 
-    private SendMessage chooseService(String room, Update update) {
+    private Object chooseService(String room, Update update) {
         try {
             if (HI_GPT.equals(room)) {
                 return chatGPTService.ask(update.getMessage().getText(), update.getMessage().getChatId());
@@ -81,7 +84,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             } else {
                 //TODO
             }
-        } catch (OpenAiHttpException e) {
+        } catch (Exception e) {
             log.error("Problems with GPT connection", e);
             return answerService.getErrorText(String.format(ERROR_MSG, e.getMessage()), update.getMessage().getChatId());
         }

@@ -1,12 +1,11 @@
 package com.example.gpt.service;
 
-import com.theokanning.openai.OpenAiHttpException;
 import com.theokanning.openai.image.CreateImageRequest;
 import com.theokanning.openai.image.Image;
 import com.theokanning.openai.service.OpenAiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 
 import java.util.List;
 
@@ -19,7 +18,7 @@ public class DalleService {
     String token = System.getenv("OPENAI_TOKEN");
     OpenAiService service = new OpenAiService(token);
 
-    public SendMessage ask(String text, Long chatId) throws OpenAiHttpException {
+    public SendPhoto ask(String text, Long chatId) throws Exception {
         CreateImageRequest request = CreateImageRequest.builder()
                 .prompt(text)
                 .build();
