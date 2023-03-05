@@ -8,15 +8,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
+import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import static com.example.gpt.source.Commands.*;
-import static com.example.gpt.source.MessageTexts.ERROR_MSG;
+import static com.example.gpt.source.MessageTexts.*;
 
 @Slf4j
 @Component
@@ -34,6 +39,16 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     public TelegramBot (BotConfig config) {
         this.config = config;
+        List<BotCommand> listofCommands = new ArrayList<>();
+        listofCommands.add(new BotCommand(COMMAND_START, "main menu"));
+        listofCommands.add(new BotCommand(COMMAND_HI_GPT, "start conversation with ChatGPT"));
+        listofCommands.add(new BotCommand(COMMAND_NEW_PIC, "create a picture by description"));
+        listofCommands.add(new BotCommand(COMMAND_ABOUT, "about author"));
+        try {
+            this.execute(new SetMyCommands(listofCommands, new BotCommandScopeDefault(), null));
+        } catch (TelegramApiException e) {
+            log.error("Error setting bot's command list: " + e.getMessage());
+        }
     }
 
     @Override
@@ -44,21 +59,26 @@ public class TelegramBot extends TelegramLongPollingBot {
             Object message;
             switch (receivedText.toLowerCase()) {
                 case COMMAND_START -> {
-                    message = answerService.createIntroduction(update);
+                    message = answerService.createSimpleMsg(update, INTRODUCTION);
+                    rooms.remove(chatId);
                 }
-                case HI_GPT -> {
+                case COMMAND_ABOUT -> {
+                    message = answerService.createSimpleMsg(update, ABOUT);
+                    rooms.remove(chatId);
+                }
+                case COMMAND_HI_GPT -> {
                     message = answerService.gptGreeting(update);
-                    rooms.put(chatId, HI_GPT);
+                    rooms.put(chatId, COMMAND_HI_GPT);
                 }
-                case NEW_PIC -> {
+                case COMMAND_NEW_PIC -> {
                     message = answerService.picGreeting(update);
-                    rooms.put(chatId, NEW_PIC);
+                    rooms.put(chatId, COMMAND_NEW_PIC);
                 }
                 default -> {
                     if (rooms.containsKey(chatId)) {
                         message = chooseService(rooms.get(chatId), update);
                     } else {
-                        message = answerService.createIntroduction(update);
+                        message = answerService.createSimpleMsg(update, INTRODUCTION);
                     }
                 }
             }
@@ -70,22 +90,22 @@ public class TelegramBot extends TelegramLongPollingBot {
                     execute((SendPhoto) message);
                 }
             } catch (TelegramApiException e) {
-                log.error("onUpdateReceived", e);
+                log.error("Problem with sending a message", e);
             }
         }
     }
 
     private Object chooseService(String room, Update update) {
         try {
-            if (HI_GPT.equals(room)) {
-                return chatGPTService.ask(update.getMessage().getText(), update.getMessage().getChatId());
-            } else if (NEW_PIC.equals(room)) {
-                return dalleService.ask(update.getMessage().getText(), update.getMessage().getChatId());
+            if (COMMAND_HI_GPT.equals(room)) {
+                return chatGPTService.ask(update.getMessage().getText(), update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
+            } else if (COMMAND_NEW_PIC.equals(room)) {
+                return dalleService.ask(update.getMessage().getText(), update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
             } else {
                 //TODO
             }
         } catch (Exception e) {
-            log.error("Problems with GPT connection", e);
+            log.error("We have some problems:", e);
             return answerService.getErrorText(String.format(ERROR_MSG, e.getMessage()), update.getMessage().getChatId());
         }
         return null;

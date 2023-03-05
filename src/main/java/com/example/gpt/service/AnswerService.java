@@ -19,10 +19,10 @@ import static com.example.gpt.source.MessageTexts.*;
 @Service
 public class AnswerService {
 
-    public SendMessage createIntroduction(Update update) {
+    public SendMessage createSimpleMsg(Update update, String msg) {
         SendMessage message = new SendMessage();
         message.setChatId(update.getMessage().getChatId().toString());
-        message.setText(String.format(INTRODUCTION));
+        message.setText(String.format(msg));
         return message;
     }
 
@@ -48,13 +48,13 @@ public class AnswerService {
         return message;
     }
 
-    public SendPhoto dallePicURL(List<Image> images, Long chatId) throws Exception {
+    public SendPhoto dallePicURL(Image image, Long chatId) throws Exception {
         SendPhoto message = new SendPhoto();
         message.setChatId(chatId.toString());
         Pattern pattern = Pattern.compile(".*(img-.*\\.png).*");
-        Matcher matcher = pattern.matcher(images.get(0).getUrl());
+        Matcher matcher = pattern.matcher(image.getUrl());
         if (!matcher.matches()) throw new RuntimeException("Didn't found file name in URL");
-        InputFile photo = new InputFile(new URI(images.get(0).getUrl()).toURL().openStream(), matcher.group(1));
+        InputFile photo = new InputFile(new URI(image.getUrl()).toURL().openStream(), matcher.group(1));
         message.setPhoto(photo);
         return message;
     }
