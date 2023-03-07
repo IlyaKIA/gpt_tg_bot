@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 
+import java.time.Duration;
+
 @Service
 public class DalleService {
 
@@ -15,7 +17,7 @@ public class DalleService {
     AnswerService answerService;
 
     String token = System.getenv("OPENAI_TOKEN");
-    OpenAiService service = new OpenAiService(token);
+    OpenAiService service = new OpenAiService(token, Duration.ofSeconds(30L));
 
     public SendPhoto ask(String text, Long chatId, String userName) throws Exception {
         if (StringUtils.isEmpty(text)) throw new RuntimeException("I need a text to generate picture");

@@ -20,8 +20,12 @@ import static com.example.gpt.source.MessageTexts.*;
 public class AnswerService {
 
     public SendMessage createSimpleMsg(Update update, String msg) {
+        return createSimpleMsg(update.getMessage().getChatId().toString(), msg);
+    }
+
+    public SendMessage createSimpleMsg(String chatId, String msg) {
         SendMessage message = new SendMessage();
-        message.setChatId(update.getMessage().getChatId().toString());
+        message.setChatId(chatId);
         message.setText(String.format(msg));
         return message;
     }

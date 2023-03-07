@@ -11,6 +11,8 @@ import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
@@ -19,6 +21,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.example.gpt.source.Commands.*;
 import static com.example.gpt.source.MessageTexts.*;
@@ -29,6 +32,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     final BotConfig config;
     private final HashMap<Long, String> rooms = new HashMap<>();
+    private final Map<Long, Integer> CHAT_WAITING_ANSWER = new HashMap<>();
 
     @Autowired
     AnswerService answerService;
@@ -57,6 +61,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             Long chatId = update.getMessage().getChatId();
             String receivedText = update.getMessage().getText();
             Object message;
+            try {
             switch (receivedText.toLowerCase()) {
                 case COMMAND_START -> {
                     message = answerService.createSimpleMsg(update, INTRODUCTION);
@@ -76,6 +81,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 }
                 default -> {
                     if (rooms.containsKey(chatId)) {
+                        sendWaitingMsg(chatId);
                         message = chooseService(rooms.get(chatId), update);
                     } else {
                         message = answerService.createSimpleMsg(update, INTRODUCTION);
@@ -83,16 +89,25 @@ public class TelegramBot extends TelegramLongPollingBot {
                 }
             }
 
-            try {
-                if (message instanceof SendMessage) {
-                    execute((SendMessage) message);
-                } else if (message instanceof SendPhoto) {
-                    execute((SendPhoto) message);
-                }
+            if (CHAT_WAITING_ANSWER.containsKey(chatId)) {
+                DeleteMessage deleteMessage = new DeleteMessage(chatId.toString(), CHAT_WAITING_ANSWER.get(chatId));
+                CHAT_WAITING_ANSWER.remove(chatId);
+                execute(deleteMessage);
+            }
+            if (message instanceof SendMessage) {
+                execute((SendMessage) message);
+            } else if (message instanceof SendPhoto) {
+                execute((SendPhoto) message);
+            }
             } catch (TelegramApiException e) {
                 log.error("Problem with sending a message", e);
             }
         }
+    }
+
+    private void sendWaitingMsg(Long chatId) throws TelegramApiException {
+        Message execute = execute(answerService.createSimpleMsg(chatId.toString(), WAITING_MSG));
+        CHAT_WAITING_ANSWER.put(chatId, execute.getMessageId());
     }
 
     private Object chooseService(String room, Update update) {
@@ -101,8 +116,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                 return chatGPTService.ask(update.getMessage().getText(), update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
             } else if (COMMAND_NEW_PIC.equals(room)) {
                 return dalleService.ask(update.getMessage().getText(), update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
-            } else {
-                //TODO
             }
         } catch (Exception e) {
             log.error("We have some problems:", e);
