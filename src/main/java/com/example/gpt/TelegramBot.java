@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.example.gpt.source.Commands.*;
 import static com.example.gpt.source.MessageTexts.*;
@@ -40,6 +42,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     ChatGPT_Service chatGPTService;
     @Autowired
     DalleService dalleService;
+    ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     public TelegramBot (BotConfig config) {
         this.config = config;
@@ -57,52 +60,54 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        if (update.hasMessage() && update.getMessage().hasText()) {
-            Long chatId = update.getMessage().getChatId();
-            String receivedText = update.getMessage().getText();
-            Object message;
-            try {
-            switch (receivedText.toLowerCase()) {
-                case COMMAND_START -> {
-                    message = answerService.createSimpleMsg(update, INTRODUCTION);
-                    rooms.remove(chatId);
-                }
-                case COMMAND_ABOUT -> {
-                    message = answerService.createSimpleMsg(update, ABOUT);
-                    rooms.remove(chatId);
-                }
-                case COMMAND_HI_GPT -> {
-                    message = answerService.gptGreeting(update);
-                    rooms.put(chatId, COMMAND_HI_GPT);
-                }
-                case COMMAND_NEW_PIC -> {
-                    message = answerService.picGreeting(update);
-                    rooms.put(chatId, COMMAND_NEW_PIC);
-                }
-                default -> {
-                    if (rooms.containsKey(chatId)) {
-                        sendWaitingMsg(chatId);
-                        message = chooseService(rooms.get(chatId), update);
-                    } else {
-                        message = answerService.createSimpleMsg(update, INTRODUCTION);
+        executorService.execute(() -> {
+            if (update.hasMessage() && update.getMessage().hasText()) {
+                Long chatId = update.getMessage().getChatId();
+                String receivedText = update.getMessage().getText();
+                Object message;
+                try {
+                    switch (receivedText.toLowerCase()) {
+                        case COMMAND_START -> {
+                            message = answerService.createSimpleMsg(update, INTRODUCTION);
+                            rooms.remove(chatId);
+                        }
+                        case COMMAND_ABOUT -> {
+                            message = answerService.createSimpleMsg(update, ABOUT);
+                            rooms.remove(chatId);
+                        }
+                        case COMMAND_HI_GPT -> {
+                            message = answerService.gptGreeting(update);
+                            rooms.put(chatId, COMMAND_HI_GPT);
+                        }
+                        case COMMAND_NEW_PIC -> {
+                            message = answerService.picGreeting(update);
+                            rooms.put(chatId, COMMAND_NEW_PIC);
+                        }
+                        default -> {
+                            if (rooms.containsKey(chatId)) {
+                                sendWaitingMsg(chatId);
+                                message = chooseService(rooms.get(chatId), update);
+                            } else {
+                                message = answerService.createSimpleMsg(update, INTRODUCTION);
+                            }
+                        }
                     }
+
+                    if (CHAT_WAITING_ANSWER.containsKey(chatId)) {
+                        DeleteMessage deleteMessage = new DeleteMessage(chatId.toString(), CHAT_WAITING_ANSWER.get(chatId));
+                        CHAT_WAITING_ANSWER.remove(chatId);
+                        execute(deleteMessage);
+                    }
+                    if (message instanceof SendMessage) {
+                        execute((SendMessage) message);
+                    } else if (message instanceof SendPhoto) {
+                        execute((SendPhoto) message);
+                    }
+                } catch (TelegramApiException e) {
+                    log.error("Problem with sending a message", e);
                 }
             }
-
-            if (CHAT_WAITING_ANSWER.containsKey(chatId)) {
-                DeleteMessage deleteMessage = new DeleteMessage(chatId.toString(), CHAT_WAITING_ANSWER.get(chatId));
-                CHAT_WAITING_ANSWER.remove(chatId);
-                execute(deleteMessage);
-            }
-            if (message instanceof SendMessage) {
-                execute((SendMessage) message);
-            } else if (message instanceof SendPhoto) {
-                execute((SendPhoto) message);
-            }
-            } catch (TelegramApiException e) {
-                log.error("Problem with sending a message", e);
-            }
-        }
+        });
     }
 
     private void sendWaitingMsg(Long chatId) throws TelegramApiException {
