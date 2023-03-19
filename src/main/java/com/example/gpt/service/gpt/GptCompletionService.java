@@ -1,5 +1,7 @@
-package com.example.gpt.service;
+package com.example.gpt.service.gpt;
 
+import com.example.gpt.service.AnswerService;
+import com.example.gpt.service.gpt.GPT_Service;
 import com.theokanning.openai.OpenAiHttpException;
 import com.theokanning.openai.completion.CompletionChoice;
 import com.theokanning.openai.completion.CompletionRequest;
@@ -14,14 +16,14 @@ import java.util.HashMap;
 import java.util.List;
 
 @Service
-public class ChatGPT_Service {
+public class GptCompletionService implements GPT_Service {
 
     @Autowired
     AnswerService answerService;
     String token = System.getenv("OPENAI_TOKEN");
     OpenAiService service = new OpenAiService(token, Duration.ofSeconds(60L));
 
-
+    @Override
     public SendMessage ask(String text, Long chatId, String userName) throws OpenAiHttpException {
         if (StringUtils.isEmpty(text)) throw new RuntimeException("Send me text if you have a question");
         CompletionRequest completionRequest = CompletionRequest.builder()

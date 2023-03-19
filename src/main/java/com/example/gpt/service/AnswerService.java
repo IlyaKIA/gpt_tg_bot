@@ -1,6 +1,7 @@
 package com.example.gpt.service;
 
 import com.theokanning.openai.completion.CompletionChoice;
+import com.theokanning.openai.completion.chat.ChatCompletionChoice;
 import com.theokanning.openai.image.Image;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -30,10 +31,16 @@ public class AnswerService {
         return message;
     }
 
-    public SendMessage gptGreeting(Update update) {
+    public SendMessage completionGreeting(Update update) {
         SendMessage message = new SendMessage();
         message.setChatId(update.getMessage().getChatId().toString());
         message.setText(String.format(START_CONVERSATION, update.getMessage().getChat().getFirstName()));
+        return message;
+    }
+    public SendMessage chatGreeting(Update update) {
+        SendMessage message = new SendMessage();
+        message.setChatId(update.getMessage().getChatId().toString());
+        message.setText(String.format(START_CHATTING, update.getMessage().getChat().getFirstName()));
         return message;
     }
 
@@ -48,6 +55,13 @@ public class AnswerService {
         SendMessage message = new SendMessage();
         message.setChatId(chatId.toString());
         String text = choices.stream().map(choice -> choice.getText() + "\n").collect(Collectors.joining());
+        message.setText(text);
+        return message;
+    }
+    public SendMessage gptChatCompletion(List<ChatCompletionChoice> choices, Long chatId) {
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId.toString());
+        String text = choices.stream().map(choice -> choice.getMessage().getContent() + "\n").collect(Collectors.joining());
         message.setText(text);
         return message;
     }

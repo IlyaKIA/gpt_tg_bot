@@ -1,5 +1,6 @@
-package com.example.gpt.service;
+package com.example.gpt.service.gpt;
 
+import com.example.gpt.service.AnswerService;
 import com.theokanning.openai.image.CreateImageRequest;
 import com.theokanning.openai.image.Image;
 import com.theokanning.openai.service.OpenAiService;
@@ -11,14 +12,14 @@ import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import java.time.Duration;
 
 @Service
-public class DalleService {
+public class DalleService implements GPT_Service {
 
     @Autowired
     AnswerService answerService;
 
     String token = System.getenv("OPENAI_TOKEN");
     OpenAiService service = new OpenAiService(token, Duration.ofSeconds(30L));
-
+    @Override
     public SendPhoto ask(String text, Long chatId, String userName) throws Exception {
         if (StringUtils.isEmpty(text)) throw new RuntimeException("I need a text to generate picture");
         CreateImageRequest request = CreateImageRequest.builder()
