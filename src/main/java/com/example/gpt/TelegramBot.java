@@ -2,8 +2,9 @@ package com.example.gpt;
 
 import com.example.gpt.config.BotConfig;
 import com.example.gpt.service.AnswerService;
-import com.example.gpt.service.ChatGPT_Service;
-import com.example.gpt.service.DalleService;
+import com.example.gpt.service.gpt.GptChatService;
+import com.example.gpt.service.gpt.GptCompletionService;
+import com.example.gpt.service.gpt.DalleService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -39,7 +40,9 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Autowired
     AnswerService answerService;
     @Autowired
-    ChatGPT_Service chatGPTService;
+    GptCompletionService completionService;
+    @Autowired
+    GptChatService chatService;
     @Autowired
     DalleService dalleService;
     ExecutorService executorService = Executors.newFixedThreadPool(10);
@@ -48,8 +51,9 @@ public class TelegramBot extends TelegramLongPollingBot {
         this.config = config;
         List<BotCommand> listofCommands = new ArrayList<>();
         listofCommands.add(new BotCommand(COMMAND_START, "main menu"));
-        listofCommands.add(new BotCommand(COMMAND_HI_GPT, "start conversation with ChatGPT"));
-        listofCommands.add(new BotCommand(COMMAND_NEW_PIC, "create a picture by description"));
+        listofCommands.add(new BotCommand(COMMAND_HI_GPT, "start chatting with ChatGPT 3.5"));
+        listofCommands.add(new BotCommand(COMMAND_ASK_GPT, "ask question ChatGPT 3"));
+        listofCommands.add(new BotCommand(COMMAND_NEW_PIC, "create a picture by description. Using DALL-E AI"));
         listofCommands.add(new BotCommand(COMMAND_ABOUT, "about author"));
         try {
             this.execute(new SetMyCommands(listofCommands, new BotCommandScopeDefault(), null));
@@ -76,8 +80,12 @@ public class TelegramBot extends TelegramLongPollingBot {
                             rooms.remove(chatId);
                         }
                         case COMMAND_HI_GPT -> {
-                            message = answerService.gptGreeting(update);
+                            message = answerService.chatGreeting(update);
                             rooms.put(chatId, COMMAND_HI_GPT);
+                        }
+                        case COMMAND_ASK_GPT -> {
+                            message = answerService.completionGreeting(update);
+                            rooms.put(chatId, COMMAND_ASK_GPT);
                         }
                         case COMMAND_NEW_PIC -> {
                             message = answerService.picGreeting(update);
@@ -117,10 +125,19 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private Object chooseService(String room, Update update) {
         try {
-            if (COMMAND_HI_GPT.equals(room)) {
-                return chatGPTService.ask(update.getMessage().getText(), update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
-            } else if (COMMAND_NEW_PIC.equals(room)) {
-                return dalleService.ask(update.getMessage().getText(), update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
+            switch (room) {
+                case COMMAND_HI_GPT -> {
+                    return chatService.ask(update.getMessage().getText(),
+                            update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
+                }
+                case COMMAND_ASK_GPT -> {
+                    return completionService.ask(update.getMessage().getText(),
+                            update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
+                }
+                case COMMAND_NEW_PIC -> {
+                    return dalleService.ask(update.getMessage().getText(),
+                            update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
+                }
             }
         } catch (Exception e) {
             log.error("We have some problems:", e);
