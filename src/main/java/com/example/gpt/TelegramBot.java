@@ -5,6 +5,7 @@ import com.example.gpt.service.AnswerService;
 import com.example.gpt.service.gpt.GptChatService;
 import com.example.gpt.service.gpt.GptCompletionService;
 import com.example.gpt.service.gpt.DalleService;
+import com.example.gpt.source.Room;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -34,8 +35,7 @@ import static com.example.gpt.source.MessageTexts.*;
 public class TelegramBot extends TelegramLongPollingBot {
 
     final BotConfig config;
-    private final HashMap<Long, String> rooms = new HashMap<>();
-    private final Map<Long, Integer> CHAT_WAITING_ANSWER = new HashMap<>();
+    private final Map<Long, Room> rooms = new HashMap<>(); // TODO move to singleton
 
     @Autowired
     AnswerService answerService;
@@ -49,14 +49,14 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     public TelegramBot (BotConfig config) {
         this.config = config;
-        List<BotCommand> listofCommands = new ArrayList<>();
-        listofCommands.add(new BotCommand(COMMAND_START, "main menu"));
-        listofCommands.add(new BotCommand(COMMAND_HI_GPT, "start chatting with ChatGPT 3.5"));
-        listofCommands.add(new BotCommand(COMMAND_ASK_GPT, "ask question ChatGPT 3"));
-        listofCommands.add(new BotCommand(COMMAND_NEW_PIC, "create a picture by description. Using DALL-E AI"));
-        listofCommands.add(new BotCommand(COMMAND_ABOUT, "about author"));
+        List<BotCommand> listOfCommands = new ArrayList<>();
+        listOfCommands.add(new BotCommand(COMMAND_START, "main menu"));
+        listOfCommands.add(new BotCommand(COMMAND_HI_GPT, "start chatting with ChatGPT 3.5"));
+        listOfCommands.add(new BotCommand(COMMAND_ASK_GPT, "ask question ChatGPT 3"));
+        listOfCommands.add(new BotCommand(COMMAND_NEW_PIC, "create a picture by description. Using DALL-E AI"));
+        listOfCommands.add(new BotCommand(COMMAND_ABOUT, "about author"));
         try {
-            this.execute(new SetMyCommands(listofCommands, new BotCommandScopeDefault(), null));
+            this.execute(new SetMyCommands(listOfCommands, new BotCommandScopeDefault(), null));
         } catch (TelegramApiException e) {
             log.error("Error setting bot's command list: " + e.getMessage());
         }
@@ -81,29 +81,28 @@ public class TelegramBot extends TelegramLongPollingBot {
                         }
                         case COMMAND_HI_GPT -> {
                             message = answerService.chatGreeting(update);
-                            rooms.put(chatId, COMMAND_HI_GPT);
+                            rooms.put(chatId, new Room(COMMAND_HI_GPT));
                         }
                         case COMMAND_ASK_GPT -> {
                             message = answerService.completionGreeting(update);
-                            rooms.put(chatId, COMMAND_ASK_GPT);
+                            rooms.put(chatId, new Room(COMMAND_ASK_GPT));
                         }
                         case COMMAND_NEW_PIC -> {
                             message = answerService.picGreeting(update);
-                            rooms.put(chatId, COMMAND_NEW_PIC);
+                            rooms.put(chatId, new Room(COMMAND_NEW_PIC));
                         }
                         default -> {
                             if (rooms.containsKey(chatId)) {
                                 sendWaitingMsg(chatId);
-                                message = chooseService(rooms.get(chatId), update);
+                                message = chooseService(rooms.get(chatId).getCurrentRoom(), update);
                             } else {
                                 message = answerService.createSimpleMsg(update, INTRODUCTION);
                             }
                         }
                     }
 
-                    if (CHAT_WAITING_ANSWER.containsKey(chatId)) {
-                        DeleteMessage deleteMessage = new DeleteMessage(chatId.toString(), CHAT_WAITING_ANSWER.get(chatId));
-                        CHAT_WAITING_ANSWER.remove(chatId);
+                    if (rooms.containsKey(chatId) && rooms.get(chatId).isTempMsgExist()) {
+                        DeleteMessage deleteMessage = new DeleteMessage(chatId.toString(), rooms.get(chatId).getTempMsgIdAndClear());
                         execute(deleteMessage);
                     }
                     if (message instanceof SendMessage) {
@@ -120,7 +119,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private void sendWaitingMsg(Long chatId) throws TelegramApiException {
         Message execute = execute(answerService.createSimpleMsg(chatId.toString(), WAITING_MSG));
-        CHAT_WAITING_ANSWER.put(chatId, execute.getMessageId());
+        rooms.get(chatId).setTempMsgId(execute.getMessageId());
     }
 
     private Object chooseService(String room, Update update) {
