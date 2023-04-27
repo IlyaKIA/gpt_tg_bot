@@ -2,6 +2,7 @@ package com.example.gpt;
 
 import com.example.gpt.config.BotConfig;
 import com.example.gpt.service.AnswerService;
+import com.example.gpt.service.RoomService;
 import com.example.gpt.service.gpt.GptChatService;
 import com.example.gpt.service.gpt.GptCompletionService;
 import com.example.gpt.service.gpt.DalleService;
@@ -21,9 +22,7 @@ import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScope
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -35,7 +34,7 @@ import static com.example.gpt.source.MessageTexts.*;
 public class TelegramBot extends TelegramLongPollingBot {
 
     final BotConfig config;
-    private final Map<Long, Room> rooms = new HashMap<>(); // TODO move to singleton
+    RoomService rooms = RoomService.getInstance();
 
     @Autowired
     AnswerService answerService;
@@ -155,4 +154,3 @@ public class TelegramBot extends TelegramLongPollingBot {
         return config.getToken();
     }
 }
-

@@ -1,7 +1,9 @@
 package com.example.gpt.service;
 
+import com.example.gpt.source.Room;
 import com.theokanning.openai.completion.CompletionChoice;
 import com.theokanning.openai.completion.chat.ChatCompletionChoice;
+import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.image.Image;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -19,6 +21,8 @@ import static com.example.gpt.source.MessageTexts.*;
 
 @Service
 public class AnswerService {
+
+    RoomService rooms = RoomService.getInstance();
 
     public SendMessage createSimpleMsg(Update update, String msg) {
         return createSimpleMsg(update.getMessage().getChatId().toString(), msg);
@@ -59,11 +63,13 @@ public class AnswerService {
         return message;
     }
     public SendMessage gptChatCompletion(List<ChatCompletionChoice> choices, Long chatId) {
-        SendMessage message = new SendMessage();
-        message.setChatId(chatId.toString());
-        String text = choices.stream().map(choice -> choice.getMessage().getContent() + "\n").collect(Collectors.joining());
-        message.setText(text);
-        return message;
+        ChatMessage answer = choices.get(0).getMessage();
+        Room room = rooms.get(chatId);
+        room.getMessages().add(answer);
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(chatId.toString());
+        sendMessage.setText(answer.getContent());
+        return sendMessage;
     }
 
     public SendPhoto dallePicURL(Image image, Long chatId) throws Exception {
