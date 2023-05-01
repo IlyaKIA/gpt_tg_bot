@@ -2,13 +2,15 @@ package com.example.gpt.source;
 
 import com.theokanning.openai.completion.chat.ChatMessage;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 public class Room {
     private final String currentRoom;
     private Integer tempMsgId = null;
-    private final List<ChatMessage> history = new ArrayList<>();
+    private final List<ChatMessage> history = new LinkedList<>();
+    private int historySize;
+    private Integer historyMaxSize = 3500;
 
     public Room (String currentRoom) {
         this.currentRoom = currentRoom;
@@ -38,6 +40,11 @@ public class Room {
 
     public void addMsgToChat (ChatMessage lastMsg) {
         history.add(lastMsg);
+        historySize = historySize + lastMsg.getContent().length();
+        while (historySize > historyMaxSize) {
+            historySize = historySize - history.get(0).getContent().length();
+            history.remove(0);
+        }
     }
 
     public String getCurrentRoom() {

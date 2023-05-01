@@ -5,6 +5,7 @@ import com.theokanning.openai.completion.CompletionChoice;
 import com.theokanning.openai.completion.chat.ChatCompletionChoice;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.image.Image;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
@@ -21,8 +22,8 @@ import static com.example.gpt.source.MessageTexts.*;
 
 @Service
 public class AnswerService {
-
-    RoomService rooms = RoomService.getInstance();
+    @Autowired
+    RoomService rooms;
 
     public SendMessage createSimpleMsg(Update update, String msg) {
         return createSimpleMsg(update.getMessage().getChatId().toString(), msg);
@@ -65,7 +66,7 @@ public class AnswerService {
     public SendMessage gptChatCompletion(List<ChatCompletionChoice> choices, Long chatId) {
         ChatMessage answer = choices.get(0).getMessage();
         Room room = rooms.get(chatId);
-        room.getMessages().add(answer);
+        room.addMsgToChat(answer);
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(chatId.toString());
         sendMessage.setText(answer.getContent());
