@@ -6,4 +6,5 @@ public class Commands {
     public static final String COMMAND_ASK_GPT = "/askgpt";
     public static final String COMMAND_NEW_PIC = "/newpic";
     public static final String COMMAND_ABOUT = "/about";
+    public static final String COMMAND_STATISTICS = "/statistics";
 }

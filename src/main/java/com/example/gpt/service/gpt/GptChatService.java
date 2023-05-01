@@ -23,7 +23,8 @@ public class GptChatService implements GPT_Service {
 
     @Autowired
     AnswerService answerService;
-    RoomService rooms = RoomService.getInstance();
+    @Autowired
+    RoomService rooms;
     String token = System.getenv("OPENAI_TOKEN");
     OpenAiService service = new OpenAiService(token, Duration.ofSeconds(60L));
 
@@ -32,7 +33,7 @@ public class GptChatService implements GPT_Service {
         if (StringUtils.isEmpty(text)) throw new RuntimeException("Send me a text if you have a question");
         Room room = rooms.get(chatId);
         final ChatMessage systemMessage = new ChatMessage(ChatMessageRole.USER.value(), text);
-        room.getMessages().add(systemMessage);
+        room.addMsgToChat(systemMessage);
 
         ChatCompletionRequest chatCompletionRequest = ChatCompletionRequest
                 .builder()

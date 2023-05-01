@@ -43,4 +43,27 @@
         <appender-ref ref="FILE-ROLLING"/>
     </root>
 
+    <!-- statistics logging-->
+    <property name="STATISTICS_LOG" value="/var/log/tg-gpt-bot/statistics.log"/>
+
+    <appender name="STAT_LOG_ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${STATISTICS_LOG}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>/var/log/tg-gpt-bot/stat.%d{yyyy-MM}.%i.log.gz</fileNamePattern>
+            <!-- each archived file, size max 10MB -->
+            <maxFileSize>10MB</maxFileSize>
+            <!-- total size of all archive files, if total size > 20GB, it will delete old archived file -->
+            <totalSizeCap>1GB</totalSizeCap>
+            <!-- 60 days to keep -->
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%date [%thread] %-5level %logger{35} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.example.gpt.service.StatisticsLogger" level="info" additivity="false">
+        <appender-ref ref="STAT_LOG_ROLLING"/>
+    </logger>
+
 </configuration>

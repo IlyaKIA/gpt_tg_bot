@@ -3,6 +3,7 @@ package com.example.gpt;
 import com.example.gpt.config.BotConfig;
 import com.example.gpt.service.AnswerService;
 import com.example.gpt.service.RoomService;
+import com.example.gpt.service.StatisticsLogger;
 import com.example.gpt.service.gpt.GptChatService;
 import com.example.gpt.service.gpt.GptCompletionService;
 import com.example.gpt.service.gpt.DalleService;
@@ -34,8 +35,8 @@ import static com.example.gpt.source.MessageTexts.*;
 public class TelegramBot extends TelegramLongPollingBot {
 
     final BotConfig config;
-    RoomService rooms = RoomService.getInstance();
-
+    @Autowired
+    RoomService rooms;
     @Autowired
     AnswerService answerService;
     @Autowired
@@ -44,6 +45,8 @@ public class TelegramBot extends TelegramLongPollingBot {
     GptChatService chatService;
     @Autowired
     DalleService dalleService;
+    @Autowired
+    StatisticsLogger statisticsLogger;
     ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     public TelegramBot (BotConfig config) {
@@ -57,19 +60,26 @@ public class TelegramBot extends TelegramLongPollingBot {
         try {
             this.execute(new SetMyCommands(listOfCommands, new BotCommandScopeDefault(), null));
         } catch (TelegramApiException e) {
+            statisticsLogger.countError();
             log.error("Error setting bot's command list: " + e.getMessage());
         }
+
     }
 
     @Override
     public void onUpdateReceived(Update update) {
         executorService.execute(() -> {
             if (update.hasMessage() && update.getMessage().hasText()) {
+                statisticsLogger.countRequest(update.getMessage().getChat().getId());
                 Long chatId = update.getMessage().getChatId();
                 String receivedText = update.getMessage().getText();
                 Object message;
                 try {
                     switch (receivedText.toLowerCase()) {
+                        case COMMAND_STATISTICS -> {
+                            message = answerService.createSimpleMsg(update, statisticsLogger.getStatistics());
+                            rooms.remove(chatId);
+                        }
                         case COMMAND_START -> {
                             message = answerService.createSimpleMsg(update, INTRODUCTION);
                             rooms.remove(chatId);
@@ -110,6 +120,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                         execute((SendPhoto) message);
                     }
                 } catch (TelegramApiException e) {
+                    statisticsLogger.countError();
                     log.error("Problem with sending a message", e);
                 }
             }
@@ -138,6 +149,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 }
             }
         } catch (Exception e) {
+            statisticsLogger.countError();
             log.error("We have some problems:", e);
             return answerService.getErrorText(String.format(ERROR_MSG, e.getMessage()), update.getMessage().getChatId());
         }
