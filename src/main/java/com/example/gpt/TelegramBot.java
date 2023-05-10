@@ -35,22 +35,27 @@ import static com.example.gpt.source.MessageTexts.*;
 public class TelegramBot extends TelegramLongPollingBot {
 
     final BotConfig config;
-    @Autowired
     RoomService rooms;
-    @Autowired
     AnswerService answerService;
-    @Autowired
     GptCompletionService completionService;
-    @Autowired
     GptChatService chatService;
-    @Autowired
     DalleService dalleService;
-    @Autowired
     StatisticsLogger statisticsLogger;
     ExecutorService executorService = Executors.newFixedThreadPool(10);
-
-    public TelegramBot (BotConfig config) {
+    @Autowired
+    public TelegramBot (BotConfig config, RoomService rooms,
+                        AnswerService answerService,
+                        GptCompletionService completionService,
+                        GptChatService chatService,
+                        DalleService dalleService,
+                        StatisticsLogger statisticsLogger) {
         this.config = config;
+        this.rooms = rooms;
+        this.answerService = answerService;
+        this.completionService = completionService;
+        this.chatService = chatService;
+        this.dalleService = dalleService;
+        this.statisticsLogger = statisticsLogger;
         List<BotCommand> listOfCommands = new ArrayList<>();
         listOfCommands.add(new BotCommand(COMMAND_START, "main menu"));
         listOfCommands.add(new BotCommand(COMMAND_HI_GPT, "start chatting with ChatGPT 3.5"));
@@ -70,14 +75,18 @@ public class TelegramBot extends TelegramLongPollingBot {
     public void onUpdateReceived(Update update) {
         executorService.execute(() -> {
             if (update.hasMessage() && update.getMessage().hasText()) {
-                statisticsLogger.countRequest(update.getMessage().getChat().getId());
                 Long chatId = update.getMessage().getChatId();
                 String receivedText = update.getMessage().getText();
+                String userName = update.getMessage().getChat().getUserName();
                 Object message;
                 try {
                     switch (receivedText.toLowerCase()) {
                         case COMMAND_STATISTICS -> {
                             message = answerService.createSimpleMsg(update, statisticsLogger.getStatistics());
+                            rooms.remove(chatId);
+                        }
+                        case COMMAND_CHAT_STATISTICS -> {
+                            message = answerService.createSimpleMsg(update, statisticsLogger.getChatActivityStatistics());
                             rooms.remove(chatId);
                         }
                         case COMMAND_START -> {
@@ -102,8 +111,13 @@ public class TelegramBot extends TelegramLongPollingBot {
                         }
                         default -> {
                             if (rooms.containsKey(chatId)) {
-                                sendWaitingMsg(chatId);
-                                message = chooseService(rooms.get(chatId).getCurrentRoom(), update);
+                                if (statisticsLogger.isChatActive(chatId)) {
+                                    sendWaitingMsg(chatId);
+                                    statisticsLogger.countRequest(update.getMessage().getChat());
+                                    message = chooseService(rooms.get(chatId).getCurrentRoom(), update);
+                                } else {
+                                    message = answerService.createSimpleMsg(update, LIMIT_MSG);
+                                }
                             } else {
                                 message = answerService.createSimpleMsg(update, INTRODUCTION);
                             }
@@ -163,6 +177,6 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public String getBotToken() {
-        return config.getToken();
+        return config.getTg_token();
     }
 }

@@ -13,5 +13,6 @@ public class BotConfig {
     @Value("${bot.name}")
     String botName;
 
-    String token = System.getenv("TG_TOKEN");
+//    String tg_token = System.getenv("TG_TOKEN");
+    String tg_token = System.getenv("TG_TEST_BOT_TOKEN");
 }

@@ -17,6 +17,8 @@ public class MessageTexts {
     public static final String ABOUT =
             "Author - Ilya Kuchaev%n" +
             "Contacts:%n" +
+            "https://t.me/IlyaKIA03%n" +
             "https://github.com/IlyaKIA%n" +
             "https://www.linkedin.com/in/kuchaev-ilya";
+    public static final String LIMIT_MSG = "Sorry, but your daily limit is exhausted";
 }
