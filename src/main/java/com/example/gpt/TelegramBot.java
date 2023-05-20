@@ -4,13 +4,14 @@ import com.example.gpt.config.BotConfig;
 import com.example.gpt.service.AnswerService;
 import com.example.gpt.service.RoomService;
 import com.example.gpt.service.StatisticsLogger;
+import com.example.gpt.service.gpt.GPT_Service;
 import com.example.gpt.service.gpt.GptChatService;
 import com.example.gpt.service.gpt.GptCompletionService;
 import com.example.gpt.service.gpt.DalleService;
 import com.example.gpt.source.Room;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -24,16 +25,20 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.example.gpt.source.Commands.*;
 import static com.example.gpt.source.MessageTexts.*;
 
 @Slf4j
-@Component
+@Service
 public class TelegramBot extends TelegramLongPollingBot {
 
+    private final Map<String, GPT_Service> servicesByName;
     final BotConfig config;
     RoomService rooms;
     AnswerService answerService;
@@ -48,7 +53,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                         GptCompletionService completionService,
                         GptChatService chatService,
                         DalleService dalleService,
-                        StatisticsLogger statisticsLogger) {
+                        StatisticsLogger statisticsLogger,
+                        List<GPT_Service> gptServices) {
         this.config = config;
         this.rooms = rooms;
         this.answerService = answerService;
@@ -56,6 +62,9 @@ public class TelegramBot extends TelegramLongPollingBot {
         this.chatService = chatService;
         this.dalleService = dalleService;
         this.statisticsLogger = statisticsLogger;
+        this.servicesByName = gptServices.stream()
+                .collect(Collectors.toMap(GPT_Service::getClassName, Function.identity()));
+
         List<BotCommand> listOfCommands = new ArrayList<>();
         listOfCommands.add(new BotCommand(COMMAND_START, "main menu"));
         listOfCommands.add(new BotCommand(COMMAND_HI_GPT, "start chatting with ChatGPT 3.5"));
@@ -77,7 +86,6 @@ public class TelegramBot extends TelegramLongPollingBot {
             if (update.hasMessage() && update.getMessage().hasText()) {
                 Long chatId = update.getMessage().getChatId();
                 String receivedText = update.getMessage().getText();
-                String userName = update.getMessage().getChat().getUserName();
                 Object message;
                 try {
                     switch (receivedText.toLowerCase()) {
@@ -98,23 +106,27 @@ public class TelegramBot extends TelegramLongPollingBot {
                             rooms.remove(chatId);
                         }
                         case COMMAND_HI_GPT -> {
-                            message = answerService.chatGreeting(update);
-                            rooms.put(chatId, new Room(COMMAND_HI_GPT));
+                            message = answerService.createGreetingMsg(update, START_CHATTING);
+                            rooms.put(chatId, new Room(GptChatService.class.getName()));
                         }
                         case COMMAND_ASK_GPT -> {
-                            message = answerService.completionGreeting(update);
-                            rooms.put(chatId, new Room(COMMAND_ASK_GPT));
+                            message = answerService.createGreetingMsg(update, START_CONVERSATION);
+                            rooms.put(chatId, new Room(GptCompletionService.class.getName()));
                         }
                         case COMMAND_NEW_PIC -> {
-                            message = answerService.picGreeting(update);
-                            rooms.put(chatId, new Room(COMMAND_NEW_PIC));
+                            message = answerService.createGreetingMsg(update, START_DRAWING);
+                            rooms.put(chatId, new Room(DalleService.class.getName()));
+                        }
+                        case COMMAND_LIVE_AVATAR -> {
+                            message = answerService.createGreetingMsg(update, START_AVATAR);
+                            rooms.put(chatId, new Room(COMMAND_LIVE_AVATAR));
                         }
                         default -> {
                             if (rooms.containsKey(chatId)) {
                                 if (statisticsLogger.isChatActive(chatId)) {
                                     sendWaitingMsg(chatId);
                                     statisticsLogger.countRequest(update.getMessage().getChat());
-                                    message = chooseService(rooms.get(chatId).getCurrentRoom(), update);
+                                    message = chooseService(rooms.get(chatId).getGptService(), update);
                                 } else {
                                     message = answerService.createSimpleMsg(update, LIMIT_MSG);
                                 }
@@ -146,28 +158,16 @@ public class TelegramBot extends TelegramLongPollingBot {
         rooms.get(chatId).setTempMsgId(execute.getMessageId());
     }
 
-    private Object chooseService(String room, Update update) {
+    private Object chooseService(String serviceName, Update update) {
         try {
-            switch (room) {
-                case COMMAND_HI_GPT -> {
-                    return chatService.ask(update.getMessage().getText(),
-                            update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
-                }
-                case COMMAND_ASK_GPT -> {
-                    return completionService.ask(update.getMessage().getText(),
-                            update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
-                }
-                case COMMAND_NEW_PIC -> {
-                    return dalleService.ask(update.getMessage().getText(),
-                            update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
-                }
-            }
+            GPT_Service service = servicesByName.get(serviceName);
+            return service.ask(update.getMessage().getText(),
+                    update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
         } catch (Exception e) {
             statisticsLogger.countError();
             log.error("We have some problems:", e);
             return answerService.getErrorText(String.format(ERROR_MSG, e.getMessage()), update.getMessage().getChatId());
         }
-        return null;
     }
 
     @Override

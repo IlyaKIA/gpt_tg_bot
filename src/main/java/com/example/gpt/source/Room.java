@@ -6,14 +6,14 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class Room {
-    private final String currentRoom;
+    private final String gptService;
     private Integer tempMsgId = null;
     private final List<ChatMessage> history = new LinkedList<>();
     private int historySize;
     private Integer historyMaxSize = 3500;
 
-    public Room (String currentRoom) {
-        this.currentRoom = currentRoom;
+    public Room (String gptService) {
+        this.gptService = gptService;
     }
 
     public Integer getTempMsgIdAndClear() {
@@ -47,7 +47,7 @@ public class Room {
         }
     }
 
-    public String getCurrentRoom() {
-        return currentRoom;
+    public String getGptService() {
+        return gptService;
     }
 }

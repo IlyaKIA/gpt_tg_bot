@@ -8,4 +8,5 @@ public class Commands {
     public static final String COMMAND_ABOUT = "/about";
     public static final String COMMAND_STATISTICS = "/statistics";
     public static final String COMMAND_CHAT_STATISTICS = "/chatstatistics";
+    public static final String COMMAND_LIVE_AVATAR = "/liveavatar";
 }
