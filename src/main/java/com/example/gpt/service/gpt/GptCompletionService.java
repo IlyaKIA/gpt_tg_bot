@@ -1,7 +1,6 @@
 package com.example.gpt.service.gpt;
 
 import com.example.gpt.service.AnswerService;
-import com.example.gpt.service.gpt.GPT_Service;
 import com.theokanning.openai.OpenAiHttpException;
 import com.theokanning.openai.completion.CompletionChoice;
 import com.theokanning.openai.completion.CompletionRequest;
@@ -38,5 +37,10 @@ public class GptCompletionService implements GPT_Service {
         List<CompletionChoice> choices = service.createCompletion(completionRequest).getChoices();
 
         return answerService.gptCompletion(choices, chatId);
+    }
+
+    @Override
+    public String getClassName() {
+        return this.getClass().getName();
     }
 }

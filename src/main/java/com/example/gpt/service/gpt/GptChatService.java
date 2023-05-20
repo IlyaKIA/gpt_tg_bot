@@ -49,4 +49,9 @@ public class GptChatService implements GPT_Service {
 
         return answerService.gptChatCompletion(choices, chatId);
     }
+
+    @Override
+    public String getClassName() {
+        return this.getClass().getName();
+    }
 }

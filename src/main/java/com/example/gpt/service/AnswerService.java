@@ -18,8 +18,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.example.gpt.source.MessageTexts.*;
-
 @Service
 public class AnswerService {
     @Autowired
@@ -36,23 +34,10 @@ public class AnswerService {
         return message;
     }
 
-    public SendMessage completionGreeting(Update update) {
+    public SendMessage createGreetingMsg(Update update, String greetingText) {
         SendMessage message = new SendMessage();
         message.setChatId(update.getMessage().getChatId().toString());
-        message.setText(String.format(START_CONVERSATION, update.getMessage().getChat().getFirstName()));
-        return message;
-    }
-    public SendMessage chatGreeting(Update update) {
-        SendMessage message = new SendMessage();
-        message.setChatId(update.getMessage().getChatId().toString());
-        message.setText(String.format(START_CHATTING, update.getMessage().getChat().getFirstName()));
-        return message;
-    }
-
-    public SendMessage picGreeting(Update update) {
-        SendMessage message = new SendMessage();
-        message.setChatId(update.getMessage().getChatId().toString());
-        message.setText(String.format(START_DRAWING, update.getMessage().getChat().getFirstName()));
+        message.setText(String.format(greetingText, update.getMessage().getChat().getFirstName()));
         return message;
     }
 

@@ -30,4 +30,9 @@ public class DalleService implements GPT_Service {
         Image image = service.createImage(request).getData().get(0);
         return answerService.dallePicURL(image, chatId);
     }
+
+    @Override
+    public String getClassName() {
+        return this.getClass().getName();
+    }
 }
