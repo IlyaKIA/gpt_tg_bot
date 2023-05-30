@@ -9,10 +9,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
+import java.io.IOException;
 import java.net.URI;
+import java.net.URL;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -73,6 +76,17 @@ public class AnswerService {
         SendMessage message = new SendMessage();
         message.setChatId(chatId.toString());
         message.setText(errText);
+        return message;
+    }
+
+    public SendVideo didVideoUrl(String result_url, Long chatId) throws IOException {
+        SendVideo message = new SendVideo();
+        message.setChatId(chatId.toString());
+        Pattern pattern = Pattern.compile(".*/([0-9].*\\.mp4).*");
+        Matcher matcher = pattern.matcher(result_url);
+        if (!matcher.matches()) throw new RuntimeException("Didn't found file name in URL");
+        InputFile video = new InputFile(new URL(result_url).openStream(), matcher.group(1));
+        message.setVideo(video);
         return message;
     }
 }

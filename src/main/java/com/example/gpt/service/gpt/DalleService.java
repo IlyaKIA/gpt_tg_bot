@@ -7,12 +7,14 @@ import com.theokanning.openai.service.OpenAiService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.bots.DefaultAbsSender;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.objects.Update;
 
 import java.time.Duration;
 
 @Service
-public class DalleService implements GPT_Service {
+public class DalleService implements AI_Service {
 
     @Autowired
     AnswerService answerService;
@@ -20,7 +22,10 @@ public class DalleService implements GPT_Service {
     String token = System.getenv("OPENAI_TOKEN");
     OpenAiService service = new OpenAiService(token, Duration.ofSeconds(30L));
     @Override
-    public SendPhoto ask(String text, Long chatId, String userName) throws Exception {
+    public SendPhoto ask(Update update, DefaultAbsSender sender) throws Exception {
+        String text = update.getMessage().getText();
+        String userName = update.getMessage().getChat().getUserName();
+        Long chatId = update.getMessage().getChatId();
         if (StringUtils.isEmpty(text)) throw new RuntimeException("I need a text to generate picture");
         CreateImageRequest request = CreateImageRequest.builder()
                 .n(1)

@@ -4,10 +4,7 @@ import com.example.gpt.config.BotConfig;
 import com.example.gpt.service.AnswerService;
 import com.example.gpt.service.RoomService;
 import com.example.gpt.service.StatisticsLogger;
-import com.example.gpt.service.gpt.GPT_Service;
-import com.example.gpt.service.gpt.GptChatService;
-import com.example.gpt.service.gpt.GptCompletionService;
-import com.example.gpt.service.gpt.DalleService;
+import com.example.gpt.service.gpt.*;
 import com.example.gpt.source.Room;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +13,7 @@ import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -38,7 +36,7 @@ import static com.example.gpt.source.MessageTexts.*;
 @Service
 public class TelegramBot extends TelegramLongPollingBot {
 
-    private final Map<String, GPT_Service> servicesByName;
+    private final Map<String, AI_Service> servicesByName;
     final BotConfig config;
     RoomService rooms;
     AnswerService answerService;
@@ -54,7 +52,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                         GptChatService chatService,
                         DalleService dalleService,
                         StatisticsLogger statisticsLogger,
-                        List<GPT_Service> gptServices) {
+                        List<AI_Service> gptServices) {
         this.config = config;
         this.rooms = rooms;
         this.answerService = answerService;
@@ -63,13 +61,14 @@ public class TelegramBot extends TelegramLongPollingBot {
         this.dalleService = dalleService;
         this.statisticsLogger = statisticsLogger;
         this.servicesByName = gptServices.stream()
-                .collect(Collectors.toMap(GPT_Service::getClassName, Function.identity()));
+                .collect(Collectors.toMap(AI_Service::getClassName, Function.identity()));
 
         List<BotCommand> listOfCommands = new ArrayList<>();
         listOfCommands.add(new BotCommand(COMMAND_START, "main menu"));
         listOfCommands.add(new BotCommand(COMMAND_HI_GPT, "start chatting with ChatGPT 3.5"));
         listOfCommands.add(new BotCommand(COMMAND_ASK_GPT, "ask question ChatGPT 3"));
         listOfCommands.add(new BotCommand(COMMAND_NEW_PIC, "create a picture by description. Using DALL-E AI"));
+        listOfCommands.add(new BotCommand(COMMAND_LIVE_AVATAR, "create a animate avatar by photo. Using D-ID"));
         listOfCommands.add(new BotCommand(COMMAND_ABOUT, "about author"));
         try {
             this.execute(new SetMyCommands(listOfCommands, new BotCommandScopeDefault(), null));
@@ -83,12 +82,14 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         executorService.execute(() -> {
-            if (update.hasMessage() && update.getMessage().hasText()) {
+            if (update.hasMessage() && (update.getMessage().hasText() || update.getMessage().hasPhoto())) {
                 Long chatId = update.getMessage().getChatId();
                 String receivedText = update.getMessage().getText();
+                if (receivedText != null) receivedText = receivedText.toLowerCase();
+                else receivedText = "msgWithPhoto";
                 Object message;
                 try {
-                    switch (receivedText.toLowerCase()) {
+                    switch (receivedText) {
                         case COMMAND_STATISTICS -> {
                             message = answerService.createSimpleMsg(update, statisticsLogger.getStatistics());
                             rooms.remove(chatId);
@@ -119,7 +120,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                         }
                         case COMMAND_LIVE_AVATAR -> {
                             message = answerService.createGreetingMsg(update, START_AVATAR);
-                            rooms.put(chatId, new Room(COMMAND_LIVE_AVATAR));
+                            rooms.put(chatId, new Room(DidService.class.getName()));
                         }
                         default -> {
                             if (rooms.containsKey(chatId)) {
@@ -144,6 +145,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                         execute((SendMessage) message);
                     } else if (message instanceof SendPhoto) {
                         execute((SendPhoto) message);
+                    } else if (message instanceof SendVideo) {
+                        execute((SendVideo) message);
                     }
                 } catch (TelegramApiException e) {
                     statisticsLogger.countError();
@@ -160,9 +163,8 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private Object chooseService(String serviceName, Update update) {
         try {
-            GPT_Service service = servicesByName.get(serviceName);
-            return service.ask(update.getMessage().getText(),
-                    update.getMessage().getChatId(), update.getMessage().getChat().getUserName());
+            AI_Service service = servicesByName.get(serviceName);
+            return service.ask(update, this);
         } catch (Exception e) {
             statisticsLogger.countError();
             log.error("We have some problems:", e);

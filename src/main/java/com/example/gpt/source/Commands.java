@@ -6,7 +6,7 @@ public class Commands {
     public static final String COMMAND_ASK_GPT = "/askgpt";
     public static final String COMMAND_NEW_PIC = "/newpic";
     public static final String COMMAND_ABOUT = "/about";
+    public static final String COMMAND_LIVE_AVATAR = "/liveavatar";
     public static final String COMMAND_STATISTICS = "/statistics";
     public static final String COMMAND_CHAT_STATISTICS = "/chatstatistics";
-    public static final String COMMAND_LIVE_AVATAR = "/liveavatar";
 }

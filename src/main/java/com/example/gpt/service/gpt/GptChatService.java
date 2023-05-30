@@ -12,14 +12,16 @@ import com.theokanning.openai.service.OpenAiService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.bots.DefaultAbsSender;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Update;
 
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 
 @Service
-public class GptChatService implements GPT_Service {
+public class GptChatService implements AI_Service {
 
     @Autowired
     AnswerService answerService;
@@ -29,7 +31,10 @@ public class GptChatService implements GPT_Service {
     OpenAiService service = new OpenAiService(token, Duration.ofSeconds(60L));
 
     @Override
-    public SendMessage ask(String text, Long chatId, String userName) throws OpenAiHttpException {
+    public SendMessage ask(Update update, DefaultAbsSender sender) throws OpenAiHttpException {
+        String text = update.getMessage().getText();
+        String userName = update.getMessage().getChat().getUserName();
+        Long chatId = update.getMessage().getChatId();
         if (StringUtils.isEmpty(text)) throw new RuntimeException("Send me a text if you have a question");
         Room room = rooms.get(chatId);
         final ChatMessage systemMessage = new ChatMessage(ChatMessageRole.USER.value(), text);
@@ -41,7 +46,7 @@ public class GptChatService implements GPT_Service {
                 .user(userName)
                 .messages(room.getMessages())
                 .n(1)
-                .maxTokens(2048)
+                .maxTokens(1024)
                 .logitBias(new HashMap<>())
                 .build();
 
